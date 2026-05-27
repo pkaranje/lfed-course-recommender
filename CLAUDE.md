@@ -32,11 +32,12 @@ and all external I/O — database, vector store, and LLM APIs alike.
 app/
 ├── __init__.py
 ├── main.py              # FastAPI app, router includes, exception handlers, configure_logging()
-├── config.py            # Settings via pydantic-settings (LLM_MODEL, EMBED_MODEL, keys, Chroma)
-├── dependencies.py      # DI: get_vector_store, get_llm_client, get_embed_client, get_*_service
-├── middleware.py        # RequestLoggingMiddleware — request_id, structlog contextvars
 ├── core/
-│   └── logging.py       # configure_logging(), LoggerMixin, log_call decorator
+│   ├── __init__.py
+│   ├── config.py        # Settings via pydantic-settings (LLM_MODEL, EMBED_MODEL, keys, Chroma)
+│   ├── dependencies.py  # DI: get_vector_store, get_llm_client, get_embed_client, get_*_service
+│   ├── middleware.py    # RequestLoggingMiddleware — request_id, structlog contextvars
+│   └── logging.py      # configure_logging(), LoggerMixin, log_call decorator
 ├── domain/
 │   ├── __init__.py      # Re-exports all validators, exceptions, constants
 │   ├── course.py        # CourseCategory, validate_course_metadata(), exceptions
@@ -82,7 +83,7 @@ app/
 | Domain | `app/domain/` | Pure Python — validation rules, business exceptions, constants |
 | Repositories | `app/repositories/` | All external I/O — ChromaDB, LLM APIs, embedding APIs |
 | Ingestion | `app/ingestion/` | Offline pipeline — scrape → embed → store |
-| Core | `app/core/` | Logging setup, mixins, cross-cutting utilities |
+| Core | `app/core/` | Config, DI, middleware, logging — all cross-cutting infrastructure |
 
 ---
 
@@ -95,7 +96,8 @@ services     → repositories → ollama / openai     (LLM I/O)
              → repositories → ollama / openai /   (embed I/O)
                                google
 all layers   → core/logging                       (observability)
-config       → pydantic-settings                  (env vars only)
+all layers   → core/config                        (settings)
+main.py      → core/middleware, core/dependencies  (wiring)
 ```
 
 Nothing flows upward. Domain never imports from services. Repositories never import from services.
@@ -122,7 +124,7 @@ Provider switching lives entirely in `repositories/llm_client.py` and
 
 ```python
 # repositories/llm_client.py
-from app.config import settings
+from app.core.config import settings
 
 def complete(messages: list[dict]) -> str:
     if settings.LLM_MODEL.startswith("ollama/"):
@@ -200,8 +202,8 @@ TOP_K_RESULTS=5
 MAX_QUERY_LENGTH=500
 ```
 
-`config.py` reads these via `pydantic-settings`. All other modules import from `config.py`.
-**Never read `os.environ` directly anywhere except `config.py`.**
+`app/core/config.py` reads these via `pydantic-settings`. All other modules import from `app.core.config`.
+**Never read `os.environ` directly anywhere except `app/core/config.py`.**
 
 ---
 
@@ -337,7 +339,8 @@ from fastapi import FastAPI, Depends
 from pydantic import BaseModel
 
 # 3. local — always absolute from app/
-from app.config import settings
+from app.core.config import settings
+from app.core.dependencies import get_vector_store
 from app.services.recommend import RecommendService
 from app.domain.query import validate_user_query
 ```
@@ -548,7 +551,7 @@ make ingest-force   # re-scrapes + re-embeds everything
 - Do not call ollama/openai/google/anthropic SDKs directly from services — always go through `repositories/llm_client.py` and `repositories/embed_client.py`
 - Do not add a new provider without adding it to both `llm_client.py` and `embed_client.py`
 - Do not use `async def` for ChromaDB calls — the client is synchronous
-- Do not read `os.environ` directly — always go through `app/config.py`
+- Do not read `os.environ` directly — always go through `app/core/config.py`
 - Do not add business logic to `api/routes/` — it belongs in `services/`
 - Do not add I/O to `domain/` — it must stay pure Python
 - Do not import from `services/` inside `repositories/` — dependency flows down only

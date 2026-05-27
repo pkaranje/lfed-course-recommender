@@ -39,7 +39,7 @@
 Read CLAUDE.md fully before starting.
 
 Note: .gitignore, pyproject.toml, and uv.lock are already committed.
-Do not recreate them. Start from step 1 below.
+Do not recreate them. Start from step 3 below.
 
 Create the complete project scaffold for lfed-course-recommender:
 
@@ -55,8 +55,9 @@ Create the complete project scaffold for lfed-course-recommender:
    - .env.example (full contents from the Provider switching section in CLAUDE.md — Ollama as default)
 
 3. Full app/ skeleton — create all __init__.py files and empty module stubs:
-   app/__init__.py, app/main.py, app/config.py, app/dependencies.py, app/middleware.py
-   app/core/__init__.py, app/core/logging.py
+   app/__init__.py, app/main.py
+   app/core/__init__.py, app/core/config.py, app/core/dependencies.py,
+   app/core/middleware.py, app/core/logging.py
    app/domain/__init__.py, app/domain/course.py, app/domain/query.py, app/domain/recommendation.py
    app/services/__init__.py, app/services/embedder.py, app/services/retriever.py
    app/services/llm.py, app/services/recommend.py
@@ -125,9 +126,9 @@ Implement the Docker setup and app configuration:
    - COPY frontend/ ./frontend/
    - CMD ["uv", "run", "streamlit", "run", "frontend/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
 
-4. app/config.py using pydantic-settings:
+4. app/core/config.py using pydantic-settings:
    - Class Settings(BaseSettings)
-   - Fields: LLM_MODEL, EMBED_MODEL, OLLAMA_API_BASE, CHROMA_HOST, CHROMA_PORT,
+   - Fields: LLM_MODEL, EMBED_MODEL, OLLAMA_HOST, CHROMA_HOST, CHROMA_PORT,
      TOP_K_RESULTS (default 5), MAX_QUERY_LENGTH (default 500)
    - Optional fields: OPENAI_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY
    - model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
@@ -138,16 +139,24 @@ Implement the Docker setup and app configuration:
    - LoggerMixin class — adds self.logger = structlog.get_logger(class_name)
    - log_call decorator — logs function entry/exit with timing
 
-6. app/middleware.py:
+6. app/core/middleware.py:
    - RequestLoggingMiddleware — adds request_id (UUID) to structlog context vars
    - Logs method, path, status_code, duration_ms on every request
 
-7. app/main.py:
+7. app/core/dependencies.py:
+   - get_settings() -> Settings
+   - get_vector_store() -> VectorStoreRepository
+   - get_llm_client() -> LLMClient
+   - get_embed_client() -> EmbedClient
+   - (leave service getters as stubs for now)
+
+8. app/main.py:
    - FastAPI app with title, version, lifespan
    - Mount all routers from app/api/routes/
-   - Add RequestLoggingMiddleware
+   - Add RequestLoggingMiddleware from app.core.middleware
    - CORS with explicit origins from settings (localhost:8501 for Streamlit)
    - Include /api/v1 prefix on all routes
+   - Import settings from app.core.config
 
 After implementing, run: make build
 Show me the docker-compose output — it must build without errors.
@@ -156,8 +165,8 @@ Show me the docker-compose output — it must build without errors.
 **Checklist before `/clear`:**
 - [ ] `make build` completes without errors
 - [ ] `docker-compose config` shows all 3 services
-- [ ] `app/config.py` has `LLM_MODEL` defaulting to `ollama/mistral`
-- [ ] `app/main.py` imports and mounts all routers
+- [ ] `app/core/config.py` has `LLM_MODEL` defaulting to `ollama/mistral`
+- [ ] `app/main.py` imports from `app.core.config` and mounts all routers
 
 ---
 
@@ -245,11 +254,13 @@ Three files: vector_store.py, llm_client.py, embed_client.py.
 
 4. app/repositories/__init__.py — export all three classes and their exceptions
 
-5. app/dependencies.py — add getters:
+5. app/core/dependencies.py — add getters:
    - get_vector_store() -> VectorStoreRepository
    - get_llm_client() -> LLMClient
    - get_embed_client() -> EmbedClient
    (leave service getters as stubs for now)
+
+All repositories import settings from app.core.config — never from app.config.
 
 After implementing:
   python3 -c "from app.repositories import VectorStoreRepository, LLMClient, EmbedClient; print('repos OK')"
@@ -348,7 +359,7 @@ Read app/repositories/ fully before starting — services call repositories only
    - Calls LLMService.generate()
    - Logs full pipeline timing end-to-end
 
-5. Update app/dependencies.py with getters for all services via FastAPI Depends()
+5. Update app/core/dependencies.py with getters for all services via FastAPI Depends()
 
 After implementing, test the full pipeline end-to-end:
   python3 -c "
