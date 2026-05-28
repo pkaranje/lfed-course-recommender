@@ -34,7 +34,7 @@ def get_embedder_service() -> EmbedderService:
 
 
 def get_retriever_service() -> RetrieverService:
-    return RetrieverService(vector_store=get_vector_store())
+    return RetrieverService(vector_store=get_vector_store(), embedder=get_embedder_service())
 
 
 def get_llm_service() -> LLMService:
