@@ -98,12 +98,14 @@ dev: install
 	$(UVICORN) $(APP) --reload --host 0.0.0.0 --port $(PORT)
 
 # -------- Ingestion --------
+INGEST_ENV := CHROMA_HOST=localhost CHROMA_PORT=8080 OLLAMA_HOST=http://localhost:11434
+
 ingest: install
 	@if [ ! -f ".uv/.ingested" ]; then \
 		echo "► Scraping LF catalog..."; \
-		$(PYTHON) -m app.ingestion.scraper && \
+		$(INGEST_ENV) $(PYTHON) -m app.ingestion.scraper && \
 		echo "► Embedding + loading into ChromaDB..."; \
-		$(PYTHON) -m app.ingestion.loader && \
+		$(INGEST_ENV) $(PYTHON) -m app.ingestion.loader && \
 		touch .uv/.ingested; \
 		echo "✓ Ingestion complete"; \
 	else \
@@ -113,9 +115,9 @@ ingest: install
 ingest-force: install
 	@rm -f .uv/.ingested
 	@echo "► Scraping LF catalog..."
-	$(PYTHON) -m app.ingestion.scraper
+	$(INGEST_ENV) $(PYTHON) -m app.ingestion.scraper
 	@echo "► Embedding + loading into ChromaDB..."
-	$(PYTHON) -m app.ingestion.loader
+	$(INGEST_ENV) $(PYTHON) -m app.ingestion.loader --force
 	@touch .uv/.ingested
 	@echo "✓ Ingestion complete"
 

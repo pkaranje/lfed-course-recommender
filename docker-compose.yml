@@ -4,7 +4,13 @@ services:
     ports:
       - "8080:8000"
     volumes:
-      - ./data/chroma_db:/chroma/chroma
+      - ./data/chroma_db:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
@@ -12,11 +18,15 @@ services:
       dockerfile: Dockerfile.backend
     ports:
       - "8000:8000"
-    env_file: .env
+    env_file: .env.docker
     depends_on:
-      - chromadb
+      chromadb:
+        condition: service_healthy
     volumes:
       - ./app:/app/app
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Linux support — no-op on Mac/Windows
 
   frontend:
     build:
@@ -24,6 +34,9 @@ services:
       dockerfile: Dockerfile.frontend
     ports:
       - "8501:8501"
-    env_file: .env
+    env_file: .env.docker
     depends_on:
       - backend
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Linux support — no-op on Mac/Windows

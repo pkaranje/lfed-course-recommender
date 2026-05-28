@@ -13,6 +13,8 @@ class VectorStoreRepository(BaseRepository):
             self._client = chromadb.HttpClient(
                 host=settings.CHROMA_HOST,
                 port=settings.CHROMA_PORT,
+                ssl=False,
+                headers={"X-Chroma-Token": ""},
             )
         except Exception as exc:
             raise RepositoryError(f"Failed to create ChromaDB client: {exc}") from exc
@@ -39,6 +41,7 @@ class VectorStoreRepository(BaseRepository):
         documents: list[str],
         metadatas: list[dict],
         ids: list[str],
+        embeddings: list[list[float]] | None = None,
     ) -> None:
         """Upsert documents into the ChromaDB collection.
 
@@ -46,11 +49,16 @@ class VectorStoreRepository(BaseRepository):
             documents: Raw text documents (course descriptions).
             metadatas: Course metadata dicts.
             ids: Document IDs (slugified URLs).
+            embeddings: Pre-computed embedding vectors. If None, ChromaDB will
+                embed using its default model (must match query dimensions).
         """
         self.logger.info("upsert_started", count=len(ids))
         collection = self._ensure_collection()
         try:
-            collection.upsert(documents=documents, metadatas=metadatas, ids=ids)
+            kwargs: dict = {"documents": documents, "metadatas": metadatas, "ids": ids}
+            if embeddings is not None:
+                kwargs["embeddings"] = embeddings
+            collection.upsert(**kwargs)
             self.logger.info("upsert_complete", count=len(ids))
         except Exception as exc:
             raise RepositoryError(f"Upsert failed: {exc}") from exc
