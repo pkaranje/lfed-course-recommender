@@ -16,7 +16,7 @@ def get_settings() -> Settings:
 
 @lru_cache
 def get_vector_store() -> VectorStoreRepository:
-    return VectorStoreRepository()
+    return VectorStoreRepository(settings=settings)
 
 
 @lru_cache

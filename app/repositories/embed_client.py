@@ -1,5 +1,9 @@
 from app.core.config import settings
-from app.repositories import BaseRepository
+from app.repositories._base import BaseRepository, RepositoryError
+
+
+class EmbedClientError(RepositoryError):
+    pass
 
 
 class EmbedClient(BaseRepository):
@@ -13,31 +17,62 @@ class EmbedClient(BaseRepository):
             Embedding vector as list of floats.
 
         Raises:
+            EmbedClientError: On any SDK failure.
             ValueError: If EMBED_MODEL prefix is not supported.
         """
-        if settings.EMBED_MODEL.startswith("ollama/"):
-            import ollama
+        model = settings.EMBED_MODEL
 
-            model = settings.EMBED_MODEL.replace("ollama/", "")
-            r = ollama.embeddings(model=model, prompt=text)
-            return r["embedding"]
+        try:
+            if model.startswith("ollama/"):
+                import ollama
 
-        elif settings.EMBED_MODEL.startswith("text-embedding"):
-            from openai import OpenAI
+                model_name = model.replace("ollama/", "")
+                client = ollama.Client(host=settings.OLLAMA_HOST)
+                r = client.embeddings(model=model_name, prompt=text)
+                embedding: list[float] = r["embedding"]
+                self.logger.info(
+                    "embed_complete",
+                    provider="ollama",
+                    model=model_name,
+                    dimensions=len(embedding),
+                )
+                return embedding
 
-            r = OpenAI(api_key=settings.OPENAI_API_KEY).embeddings.create(
-                model=settings.EMBED_MODEL, input=text
-            )
-            return r.data[0].embedding
+            elif model.startswith("text-embedding"):
+                from openai import OpenAI
 
-        elif settings.EMBED_MODEL.startswith("gemini/"):
-            import google.generativeai as genai
+                r = OpenAI(api_key=settings.OPENAI_API_KEY).embeddings.create(
+                    model=model, input=text
+                )
+                embedding = r.data[0].embedding
+                self.logger.info(
+                    "embed_complete",
+                    provider="openai",
+                    model=model,
+                    dimensions=len(embedding),
+                )
+                return embedding
 
-            genai.configure(api_key=settings.GEMINI_API_KEY)
-            r = genai.embed_content(
-                model=settings.EMBED_MODEL.replace("gemini/", ""),
-                content=text,
-            )
-            return r["embedding"]
+            elif model.startswith("gemini/"):
+                import google.generativeai as genai
 
-        raise ValueError(f"Unsupported EMBED_MODEL: {settings.EMBED_MODEL}")
+                model_name = model.replace("gemini/", "")
+                genai.configure(api_key=settings.GEMINI_API_KEY)
+                r = genai.embed_content(model=model_name, content=text)
+                embedding = r["embedding"]
+                self.logger.info(
+                    "embed_complete",
+                    provider="gemini",
+                    model=model_name,
+                    dimensions=len(embedding),
+                )
+                return embedding
+
+        except EmbedClientError:
+            raise
+        except Exception as exc:
+            raise EmbedClientError(
+                f"Embedding failed for model '{model}': {exc}"
+            ) from exc
+
+        raise ValueError(f"Unsupported EMBED_MODEL: {model}")
