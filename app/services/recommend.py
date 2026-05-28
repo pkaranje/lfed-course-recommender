@@ -87,4 +87,8 @@ class RecommendService(BaseService):
             duration_ms=duration_ms,
         )
 
-        return RecommendResponse(roadmap=roadmap, courses=course_cards)
+        return RecommendResponse(
+            roadmap=roadmap,
+            courses=course_cards,
+            model_used=settings.LLM_MODEL,
+        )
