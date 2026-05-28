@@ -171,7 +171,7 @@ Same pattern in `repositories/embed_client.py` for embeddings.
 | Google | `gemini/gemini-2.0-flash` | `gemini/text-embedding-004` | `GEMINI_API_KEY` |
 | Anthropic | `anthropic/claude-haiku-4-5` | use `text-embedding-3-small` | `ANTHROPIC_API_KEY` + `OPENAI_API_KEY` |
 
-### `.env` structure
+### `.env` structure (local development)
 
 ```bash
 # ── LLM (completion) ──────────────────────────────────────────
@@ -185,22 +185,43 @@ EMBED_MODEL=ollama/nomic-embed-text    # default — free, local, no key needed
 # EMBED_MODEL=text-embedding-3-small  # OpenAI
 # EMBED_MODEL=gemini/text-embedding-004 # Google
 
-# ── Ollama (required for ollama/* models) ─────────────────────
-OLLAMA_HOST=http://host.docker.internal:11434
+# ── Ollama ────────────────────────────────────────────────────
+OLLAMA_HOST=http://localhost:11434     # local dev
 
 # ── Optional provider keys ────────────────────────────────────
 # OPENAI_API_KEY=sk-...
 # GEMINI_API_KEY=...
 # ANTHROPIC_API_KEY=...
 
-# ── ChromaDB ──────────────────────────────────────────────────
-CHROMA_HOST=chromadb
-CHROMA_PORT=8000
+# ── ChromaDB (local dev) ──────────────────────────────────────
+CHROMA_HOST=localhost
+CHROMA_PORT=8080                       # external Docker port
 
 # ── App settings ──────────────────────────────────────────────
 TOP_K_RESULTS=5
 MAX_QUERY_LENGTH=500
 ```
+
+### `.env.docker` structure (Docker containers)
+
+```bash
+LLM_MODEL=ollama/mistral
+EMBED_MODEL=ollama/nomic-embed-text
+OLLAMA_HOST=http://host.docker.internal:11434   # reaches native Ollama from container
+CHROMA_HOST=chromadb                            # Docker service name
+CHROMA_PORT=8000                                # internal container port
+TOP_K_RESULTS=5
+MAX_QUERY_LENGTH=500
+```
+
+**Two env files — never mix them up:**
+
+| File | Used by | Committed? |
+|---|---|---|
+| `.env` | `uv run` / `make dev` / local Python | ❌ gitignored |
+| `.env.example` | Reference for new contributors | ✅ committed |
+| `.env.docker` | Docker containers via `env_file` | ❌ gitignored |
+| `.env.docker.example` | Reference for Docker setup | ✅ committed |
 
 `app/core/config.py` reads these via `pydantic-settings`. All other modules import from `app.core.config`.
 **Never read `os.environ` directly anywhere except `app/core/config.py`.**
@@ -217,9 +238,19 @@ Mac host (native):
   └── ollama serve  (port 11434, uses Metal GPU)
 
 Docker Compose:
-  ├── chromadb     (port 8080)
+  ├── chromadb     (port 8080) → data persists to data/chroma_db/
   ├── backend      (port 8000) → calls host.docker.internal:11434 for Ollama
   └── frontend     (port 8501)
+```
+
+### ChromaDB volume — important
+
+ChromaDB 1.5.9+ stores data at `/data` inside the container (not `/chroma/chroma`):
+
+```yaml
+chromadb:
+  volumes:
+    - ./data/chroma_db:/data    # ← /data not /chroma/chroma
 ```
 
 ### Dockerfile pattern — uv, not pip
@@ -452,8 +483,9 @@ lfed-course-recommender/
 ├── SECURITY.md
 ├── CHANGELOG.md
 ├── Makefile                     ← all commands live here
-├── .env.example                 ← Ollama defaults, other providers commented out
-├── .gitignore                   ← includes: .env, data/chroma_db/, __pycache__/
+├── .env.example                 ← local dev reference (committed)
+├── .env.docker.example          ← Docker reference (committed)
+├── .gitignore                   ← includes: .env, .env.docker, data/chroma_db/
 ├── pyproject.toml               ← uv, dependencies, ruff + mypy config
 ├── uv.lock                      ← committed — exact versions for reproducible builds
 ├── docker-compose.yml
@@ -504,7 +536,8 @@ to regenerate — the scraper takes time and the embedding run costs API calls o
 ```
 data/raw/courses.json       ← scraped catalog — hours to rebuild
 data/chroma_db/             ← vector store — embedding run to rebuild
-.env                        ← credentials — user fills this manually
+.env                        ← local dev credentials
+.env.docker                 ← Docker credentials
 ```
 
 ### Hard rules
