@@ -1,6 +1,4 @@
-import time
-import random
-from typing import Iterator
+from collections.abc import Iterator
 
 import httpx
 from bs4 import BeautifulSoup

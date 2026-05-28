@@ -39,7 +39,7 @@ dependencies = [
     "streamlit>=1.37.0",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=8.3.0",
     "pytest-cov>=5.0.0",

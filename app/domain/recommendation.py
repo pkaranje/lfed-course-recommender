@@ -1,22 +1,25 @@
-from typing import Any
+MAX_RESULTS: int = 5
+MIN_RESULTS: int = 1
 
-MAX_RESULTS: int = 10
 
-
-class RecommendationError(Exception):
+class InvalidTopKError(ValueError):
     pass
 
 
-def validate_recommendation(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Validate recommendation results before returning to caller.
+def validate_top_k(k: int) -> int:
+    """Validate that the requested number of results is within acceptable bounds.
 
     Args:
-        results: List of course result dicts from retriever.
+        k: Requested number of top results.
 
     Returns:
-        Validated list, capped at MAX_RESULTS.
+        The validated value of k.
 
     Raises:
-        RecommendationError: If results are malformed.
+        InvalidTopKError: If k is outside [MIN_RESULTS, MAX_RESULTS].
     """
-    raise NotImplementedError
+    if k < MIN_RESULTS or k > MAX_RESULTS:
+        raise InvalidTopKError(
+            f"top_k must be between {MIN_RESULTS} and {MAX_RESULTS}, got {k}"
+        )
+    return k

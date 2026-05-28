@@ -17,12 +17,14 @@ class EmbedClient(BaseRepository):
         """
         if settings.EMBED_MODEL.startswith("ollama/"):
             import ollama
+
             model = settings.EMBED_MODEL.replace("ollama/", "")
             r = ollama.embeddings(model=model, prompt=text)
             return r["embedding"]
 
         elif settings.EMBED_MODEL.startswith("text-embedding"):
             from openai import OpenAI
+
             r = OpenAI(api_key=settings.OPENAI_API_KEY).embeddings.create(
                 model=settings.EMBED_MODEL, input=text
             )
@@ -30,6 +32,7 @@ class EmbedClient(BaseRepository):
 
         elif settings.EMBED_MODEL.startswith("gemini/"):
             import google.generativeai as genai
+
             genai.configure(api_key=settings.GEMINI_API_KEY)
             r = genai.embed_content(
                 model=settings.EMBED_MODEL.replace("gemini/", ""),

@@ -1,8 +1,8 @@
+from app.api.schemas.query import RecommendRequest, RecommendResponse
 from app.services import BaseService
 from app.services.embedder import EmbedderService
-from app.services.retriever import RetrieverService
 from app.services.llm import LLMService
-from app.api.schemas.query import RecommendRequest, RecommendResponse
+from app.services.retriever import RetrieverService
 
 
 class RecommendService(BaseService):

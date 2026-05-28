@@ -1,8 +1,4 @@
-import json
 from pathlib import Path
-
-from app.repositories.vector_store import VectorStoreRepository
-from app.repositories.embed_client import EmbedClient
 
 RAW_DATA_PATH = Path("data/raw/courses.json")
 

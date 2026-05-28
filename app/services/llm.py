@@ -1,5 +1,5 @@
-from app.services import BaseService
 from app.repositories.llm_client import LLMClient
+from app.services import BaseService
 
 
 class LLMService(BaseService):

@@ -1,5 +1,5 @@
-from app.services import BaseService
 from app.repositories.vector_store import VectorStoreRepository
+from app.services import BaseService
 
 
 class RetrieverService(BaseService):

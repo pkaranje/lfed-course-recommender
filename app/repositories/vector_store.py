@@ -9,7 +9,13 @@ class VectorStoreRepository(BaseRepository):
     def _connect(self) -> None:
         raise NotImplementedError
 
-    def upsert(self, ids: list[str], documents: list[str], embeddings: list[list[float]], metadatas: list[dict]) -> None:
+    def upsert(
+        self,
+        ids: list[str],
+        documents: list[str],
+        embeddings: list[list[float]],
+        metadatas: list[dict],
+    ) -> None:
         """Upsert documents into the ChromaDB collection.
 
         Args:

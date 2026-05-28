@@ -17,12 +17,14 @@ class LLMClient(BaseRepository):
         """
         if settings.LLM_MODEL.startswith("ollama/"):
             import ollama
+
             model = settings.LLM_MODEL.replace("ollama/", "")
             r = ollama.chat(model=model, messages=messages)
             return r["message"]["content"]
 
         elif settings.LLM_MODEL.startswith("gpt"):
             from openai import OpenAI
+
             r = OpenAI(api_key=settings.OPENAI_API_KEY).chat.completions.create(
                 model=settings.LLM_MODEL, messages=messages, max_tokens=1000
             )
@@ -30,6 +32,7 @@ class LLMClient(BaseRepository):
 
         elif settings.LLM_MODEL.startswith("gemini/"):
             import google.generativeai as genai
+
             genai.configure(api_key=settings.GEMINI_API_KEY)
             r = genai.GenerativeModel(
                 settings.LLM_MODEL.replace("gemini/", "")
@@ -38,6 +41,7 @@ class LLMClient(BaseRepository):
 
         elif settings.LLM_MODEL.startswith("anthropic/"):
             from anthropic import Anthropic
+
             r = Anthropic(api_key=settings.ANTHROPIC_API_KEY).messages.create(
                 model=settings.LLM_MODEL.replace("anthropic/", ""),
                 max_tokens=1000,

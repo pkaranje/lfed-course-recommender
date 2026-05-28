@@ -1,5 +1,5 @@
-from app.services import BaseService
 from app.repositories.embed_client import EmbedClient
+from app.services import BaseService
 
 
 class EmbedderService(BaseService):

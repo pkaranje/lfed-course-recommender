@@ -1,14 +1,12 @@
-from typing import Optional
-
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 
 
 class CourseCard(BaseModel):
     title: str
     url: str
     category: str
-    level: Optional[str] = None
-    duration: Optional[str] = None
+    level: str | None = None
+    duration: str | None = None
     cert_available: bool = False
 
 
