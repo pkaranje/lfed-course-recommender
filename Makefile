@@ -1,10 +1,8 @@
 # -------- Variables --------
-VENV        := .venv
-PYTHON      := $(VENV)/bin/python
-PIP         := $(VENV)/bin/pip
-UVICORN     := $(VENV)/bin/uvicorn
-PYTEST      := $(VENV)/bin/pytest
-RUFF        := ruff
+PYTHON      := uv run python
+UVICORN     := uv run uvicorn
+PYTEST      := uv run pytest
+RUFF        := uv run ruff
 
 APP         := app.main:app
 PORT        := 8000
@@ -12,16 +10,16 @@ PORT        := 8000
 .DEFAULT_GOAL := help
 
 # -------- Phony Targets --------
-.PHONY: help venv install install-force dev ingest ingest-force \
-        test lint lint-fix format typecheck clean clean-all \
-        demo build run up down logs \
+.PHONY: help install install-force dev ingest ingest-force \
+        test test-cov lint lint-fix format typecheck clean clean-all \
+        demo build run up down down-all logs logs-all \
         ollama-pull ollama-start frontend-dev
 
 # -------- Help --------
 help:
 	@echo ""
 	@echo "╔══════════════════════════════════════════════════════════╗"
-	@echo "║           LF Course Navigator — Commands                 ║"
+	@echo "║         LF Course Recommender — Commands                 ║"
 	@echo "╚══════════════════════════════════════════════════════════╝"
 	@echo ""
 	@echo "  make demo         ★ Full local demo: ollama + docker + ingest (start here)"
@@ -38,9 +36,10 @@ help:
 	@echo "  make ingest-force   Re-run ingestion even if already done"
 	@echo ""
 	@echo "Local development:"
-	@echo "  make install        Setup virtualenv & install dependencies"
+	@echo "  make install        Install dependencies via uv"
 	@echo "  make dev            Start FastAPI server locally"
 	@echo "  make test           Run test suite"
+	@echo "  make test-cov       Run tests with coverage report"
 	@echo "  make lint           Run ruff lint"
 	@echo "  make lint-fix       Auto-fix lint issues"
 	@echo "  make format         Format code with ruff"
@@ -57,25 +56,21 @@ help:
 	@echo ""
 
 # -------- Local Setup --------
-venv:
-	@[ -d $(VENV) ] || python3 -m venv $(VENV)
-
-install: venv
+install:
 	@test -f .env || cp .env.example .env
-	@if [ ! -f "$(VENV)/.installed" ]; then \
-		$(PIP) install --upgrade pip && \
-		$(PIP) install -r requirements.txt && \
-		touch $(VENV)/.installed; \
-		echo "Dependencies installed"; \
+	@if [ ! -f ".uv/.installed" ]; then \
+		uv sync --dev && \
+		mkdir -p .uv && touch .uv/.installed; \
+		echo "✓ Dependencies installed"; \
 	else \
 		echo "Dependencies already installed (skip). Run 'make install-force' to reinstall"; \
 	fi
 
-install-force: venv
-	@rm -f $(VENV)/.installed
-	$(PIP) install --upgrade pip && \
-	$(PIP) install -r requirements.txt && \
-	touch $(VENV)/.installed
+install-force:
+	@rm -f .uv/.installed
+	uv sync --dev
+	@mkdir -p .uv && touch .uv/.installed
+	@echo "✓ Dependencies reinstalled"
 
 # -------- Ollama --------
 ollama-pull:
@@ -104,24 +99,24 @@ dev: install
 
 # -------- Ingestion --------
 ingest: install
-	@if [ ! -f "$(VENV)/.ingested" ]; then \
+	@if [ ! -f ".uv/.ingested" ]; then \
 		echo "► Scraping LF catalog..."; \
 		$(PYTHON) -m app.ingestion.scraper && \
 		echo "► Embedding + loading into ChromaDB..."; \
 		$(PYTHON) -m app.ingestion.loader && \
-		touch $(VENV)/.ingested; \
+		touch .uv/.ingested; \
 		echo "✓ Ingestion complete"; \
 	else \
 		echo "Already ingested (skip). Run 'make ingest-force' to re-run"; \
 	fi
 
 ingest-force: install
-	@rm -f $(VENV)/.ingested
+	@rm -f .uv/.ingested
 	@echo "► Scraping LF catalog..."
 	$(PYTHON) -m app.ingestion.scraper
 	@echo "► Embedding + loading into ChromaDB..."
 	$(PYTHON) -m app.ingestion.loader
-	@touch $(VENV)/.ingested
+	@touch .uv/.ingested
 	@echo "✓ Ingestion complete"
 
 # -------- Tests --------
@@ -142,7 +137,7 @@ format:
 	$(RUFF) format app tests
 
 typecheck:
-	$(PYTHON) -m mypy app
+	uv run mypy app
 
 # -------- Clean --------
 clean:
@@ -151,7 +146,10 @@ clean:
 	find . -type f -name ".coverage" -delete
 
 clean-all: clean
-	@rm -rf $(VENV)
+	@rm -rf .venv
+	@rm -rf .uv
+	@echo "⚠️  About to delete data/chroma_db and data/raw — press Ctrl+C to cancel"
+	@sleep 3
 	@rm -rf data/chroma_db
 	@rm -rf data/raw
 	docker-compose down -v --remove-orphans
@@ -195,16 +193,16 @@ logs-all:
 
 # -------- Frontend --------
 frontend-dev:
-	$(VENV)/bin/streamlit run frontend/app.py
+	uv run streamlit run frontend/app.py
 
 # -------- Demo --------
 demo:
 	@echo ""
 	@echo "╔══════════════════════════════════════════════════════════╗"
-	@echo "║         LF Course Navigator — Full Demo                  ║"
+	@echo "║         LF Course Recommender — Full Demo                ║"
 	@echo "╚══════════════════════════════════════════════════════════╝"
 	@echo ""
-	@echo "Stack: FastAPI · ChromaDB · LiteLLM · Ollama · Streamlit · Docker"
+	@echo "Stack: FastAPI · ChromaDB · Official SDKs · Ollama · Streamlit · Docker"
 	@echo ""
 	@echo "► Step 1/5  Checking Ollama is installed..."
 	@which ollama > /dev/null 2>&1 || (echo "✗ Ollama not found. Install: brew install ollama" && exit 1)
@@ -232,7 +230,7 @@ demo:
 	@echo ""
 	@echo "► Step 5/5  Running ingestion (scrape + embed LF catalog)..."
 	@docker-compose exec -T backend sh -c \
-		"python -m app.ingestion.scraper && python -m app.ingestion.loader"
+		"uv run python -m app.ingestion.scraper && uv run python -m app.ingestion.loader"
 	@echo ""
 	@echo "╔══════════════════════════════════════════════════════════╗"
 	@echo "║                  Demo is ready!                          ║"
