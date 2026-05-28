@@ -1,11 +1,26 @@
-from pydantic import BaseModel
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict
 
 
 class ErrorDetail(BaseModel):
-    detail: str
+    model_config = ConfigDict(frozen=True)
+
+    code: str
+    message: str
+    field: str | None = None
+
+
+class ErrorResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    error: ErrorDetail
 
 
 class HealthResponse(BaseModel):
-    status: str
+    model_config = ConfigDict(frozen=True)
+
+    status: Literal["ok"]
     version: str
-    chroma_connected: bool
+    timestamp: datetime

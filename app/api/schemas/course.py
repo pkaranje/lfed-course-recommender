@@ -1,15 +1,21 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+
+from app.domain.course import CourseCategory, CourseLevel
 
 
 class CourseCard(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     title: str
     url: str
-    category: str
-    level: str | None = None
-    duration: str | None = None
-    cert_available: bool = False
+    category: CourseCategory
+    level: CourseLevel
+    cert_available: bool
+    relevance_score: float | None = None
 
 
 class CourseResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     course: CourseCard
     score: float
