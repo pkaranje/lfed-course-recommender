@@ -23,11 +23,11 @@
 
 ## Token budget
 
-| Approach | Tokens/prompt | 12 prompts |
+| Approach | Tokens/prompt | 11 prompts |
 |---|---|---|
-| Without CLAUDE.md, verbose | ~900 | ~10,800 |
-| With CLAUDE.md, verbose | ~500 | ~6,000 |
-| With CLAUDE.md + slash commands | ~150 | ~1,800 |
+| Without CLAUDE.md, verbose | ~900 | ~9,900 |
+| With CLAUDE.md, verbose | ~500 | ~5,500 |
+| With CLAUDE.md + slash commands | ~150 | ~1,650 |
 
 ---
 
@@ -38,8 +38,12 @@
 ```
 Read CLAUDE.md fully before starting.
 
-Note: .gitignore, pyproject.toml, and uv.lock are already committed.
-Do not recreate them. Start from step 3 below.
+Note: The following files are already committed — do NOT recreate them:
+- .gitignore, pyproject.toml, uv.lock, .python-version
+- LICENSE, CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md,
+  CHANGELOG.md, .env.example, README.md, CLAUDE.md, Makefile
+
+Skip steps 1 and 2 entirely. Go straight to steps 3 and 4 only.
 
 Create the complete project scaffold for lfed-course-recommender:
 
@@ -188,9 +192,11 @@ Implement the full domain layer — pure Python, no I/O anywhere in this layer.
    - InvalidCourseError(ValueError) with descriptive message
 
 2. app/domain/query.py:
-   - MAX_QUERY_LENGTH = 500 (from settings)
+   - MAX_QUERY_LENGTH: int = 500  — plain constant, no settings import
    - sanitise_input(text: str) -> str — strip, collapse whitespace, remove control chars
-   - validate_user_query(query: str) -> str — raises QueryTooLongError, QueryEmptyError
+   - validate_user_query(query: str, max_length: int = MAX_QUERY_LENGTH) -> str
+     raises QueryTooLongError, QueryEmptyError
+     services pass settings.MAX_QUERY_LENGTH as max_length — domain never imports config
    - QueryTooLongError(ValueError), QueryEmptyError(ValueError)
 
 3. app/domain/recommendation.py:
@@ -207,7 +213,9 @@ After implementing, run:
 
 **Checklist before `/clear`:**
 - [ ] Import check passes
-- [ ] Domain files have zero imports from `app.services`, `app.repositories`, or any I/O library
+- [ ] `grep -r "from app" app/domain/` returns only `__init__.py` lines — nothing else
+- [ ] `app/domain/query.py` has NO import from `app.core.config`
+- [ ] `validate_user_query` has `max_length` parameter with default
 - [ ] All validators raise exceptions, never return bool
 
 ---
@@ -295,7 +303,7 @@ Implement the ingestion pipeline — this runs once to populate ChromaDB.
 
 2. app/ingestion/loader.py:
    - Read data/raw/courses.json
-   - For each course: embed description using litellm.embedding(model=settings.EMBED_MODEL, input=[description])
+   - For each course: embed description using EmbedClient from repositories/embed_client.py
    - Upsert into ChromaDB via VectorStoreRepository
    - id = slugified URL (use re.sub to replace non-alphanumeric with -)
    - Log progress every 10 courses
@@ -519,10 +527,11 @@ Read CLAUDE.md fully before starting.
 Read all files in app/ before writing tests — match exact function signatures.
 
 1. tests/conftest.py:
-   - Fixture: mock_settings — returns Settings with test values
+   - Fixture: mock_settings — returns Settings with test values (LLM_MODEL=ollama/mistral)
    - Fixture: mock_chroma_collection — MagicMock with .query(), .upsert(), .count()
-   - Fixture: mock_litellm_completion — patches litellm.completion
-   - Fixture: mock_litellm_embedding — patches litellm.embedding, returns 384-dim vector
+   - Fixture: mock_ollama_chat — patches ollama.chat, returns fake completion
+   - Fixture: mock_ollama_embeddings — patches ollama.embeddings, returns 384-dim vector
+   - Fixture: mock_openai_completion — patches openai.OpenAI for when LLM_MODEL=gpt-*
    - Fixture: test_client — FastAPI TestClient with mocked dependencies
 
 2. /create-test scraper
@@ -539,7 +548,7 @@ Show me the coverage report output.
 
 **Checklist before `/clear`:**
 - [ ] `make test` passes with 0 failures
-- [ ] No real API calls in any test — all litellm + ChromaDB calls mocked
+- [ ] No real API calls in any test — all ollama/openai/chromadb calls mocked
 - [ ] Coverage ≥ 70% on services and domain
 
 ---
@@ -556,7 +565,7 @@ Read CLAUDE.md fully before starting.
    - Job: test
      - runs-on: ubuntu-latest
      - python-version: "3.12"
-     - Steps: checkout, install uv, uv sync --frozen --dev,
+     - Steps: checkout, install uv, uv sync --dev,
        ruff check app tests, mypy app, pytest tests/ --cov=app
    - No Ollama or ChromaDB in CI — all external calls are mocked in tests
 
