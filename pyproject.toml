@@ -16,7 +16,7 @@ dependencies = [
 
     # Data validation
     "pydantic>=2.7.0",
-    "pydantic-settings>=2.3.0",
+    "pydantic-settings>=2.14.2",
 
     # LLM provider SDKs — official only, no third-party wrappers
     "ollama>=0.3.0",
