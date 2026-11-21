@@ -2,6 +2,8 @@
 
 AI-powered course recommendation and Q&A system built on the Linux Foundation Training & Certification catalog.
 
+> 🚧 **Status: in development (MVP).** Expect changes and rough edges. Feedback and contributions are welcome.
+
 ![CI](https://github.com/pkaranje/lfed-course-recommender/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![License](https://img.shields.io/badge/license-Apache%202.0-green)
